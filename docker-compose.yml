@@ -1,0 +1,102 @@
+version: '3.3'
+
+services:
+  reverse-proxy:
+    image: traefik
+    command: 
+     #- --api 
+     #- --entryPoints=Name:api Address::8080
+     #- --api.entrypoint=api
+     - --docker 
+     - --logLevel=INFO
+     - --docker.exposedbydefault=false
+     - --defaultentrypoints=https,http
+     #- --entryPoints=Name:http Address::80
+     - --entryPoints=Name:http Address::80 Redirect.EntryPoint:https
+     - --entryPoints=Name:https Address::443 TLS
+     - --docker.domain=servede.ddnss.de 
+     - --acme=true
+     - --acme.acmelogging=true
+     - --acme.email=andre.henkel@gmail.com
+     - --acme.domains=servede.ddnss.de
+     #vorher touch ./acme.json && chmod 600 ./acme.json
+     - --acme.storage=acme.json
+     - --acme.entryPoint=https
+     - --acme.onHostRule=true
+     #- --acme.tlsconfig=true
+     - --acme.httpchallenge.entrypoint=http
+    ports:
+      - 80:80
+      - 443:443
+    #  - 8080:8080  #api Port
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev/null:/traefik.toml
+      - ./acme.json:/acme.json
+    #depends_on:
+    #  - frontend
+  
+  mongodb:
+    image: mongo:3.4-xenial
+    restart: always
+    volumes:
+      - v-mongodb:/data/db
+    #environment:
+    #  MONGO_INITDB_ROOT_USERNAME: root
+    #  MONGO_INITDB_ROOT_PASSWORD: init
+  
+  #mongo-express:
+  #  container_name: asc-mongodb-express
+  #  image: mongo-express
+  #  restart: always
+  #  ports:
+  #    - 8081:8081
+  #  environment:
+  #    ME_CONFIG_MONGODB_SERVER: mongodb
+  #    #ME_CONFIG_MONGODB_ADMINUSERNAME: root
+  #    #ME_CONFIG_MONGODB_ADMINPASSWORD: init
+  #  depends_on:
+  #    - mongodb
+  
+  backend:
+    image: asc-backend-image
+    restart: always
+    build: ./backend/
+    #command: "cd backend &&nodemon main.js"
+    volumes:
+      - ./backend/:/usr/src/app/
+    #ports:
+    #  - 3000:3000
+    depends_on: 
+      - mongodb
+    environment:
+      DEBUG: "app:*"
+      #DEBUG: app:checkAIP
+      MongoDbHost: mongodb
+      MongoDbSid: ascdb
+    labels:
+      - traefik.enable=true
+      - traefik.backend=asc-backend-image
+      - traefik.frontend.rule=Host:servede.ddnss.de;PathPrefix:/api
+      - traefik.frontend.priority=1000
+  
+  frontend: 
+    image: asc-frontend-image
+    restart: always
+    build: ./frontend/
+    volumes:
+      - ./frontend/src:/usr/src/app/src
+    environment:
+      VIRTUAL_HOST: servede.ddnss.de
+      BackEndHost: backend
+    #ports:
+    #  - 8082:8082
+    depends_on:
+      - backend
+    labels:
+      - traefik.enable=true
+      - traefik.backend=frontend
+      - traefik.frontend.rule=Host:servede.ddnss.de
+
+volumes:
+  v-mongodb:

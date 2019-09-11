@@ -1,0 +1,11 @@
+{
+    "Customer":{
+        "dbConfig":{
+            "host":     "localhost",
+            "port":     54321,
+            "dbName":   "aiautoserverchecksdb",
+            "userName": "aiautoservercheckuser",
+            "userPass": "init123"  
+        }
+    }
+}

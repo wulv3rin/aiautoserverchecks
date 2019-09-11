@@ -1,0 +1,7 @@
+{
+    "Customer": {
+      "dbConfig": {
+        "userPass": "aiautoserverchecks_dbUserPass"
+      }
+    }
+}
