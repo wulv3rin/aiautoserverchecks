@@ -131,6 +131,16 @@
     },
 
     watch: {
+      pagination: {
+        handler () {
+          this.getDataFromApi()
+            .then(data => {
+              this.rows = data.items
+              this.totalRows = data.total
+            })
+        },
+        deep: true
+      },
       dialog (val) {
         val || this.close()
         this.$nextTick(this.$refs.TicketFocus.focus);
