@@ -1,3 +1,5 @@
+/*jshint esversion: 8 */
+
 const checkAdminInterface = require('./checkAdminInterface');
 const db = require('./db');
 const debug = require('debug')('app:express');
