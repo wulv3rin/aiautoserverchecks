@@ -6,13 +6,14 @@
       </v-toolbar>
     
       <v-data-table
-        :hide-actions= true
+        :hide-actions= false
         :hide-headers= false
         :headers="headersAlerts"
         :items="rowsAlerts"
         :pagination.sync="paginationAlerts"
         :total-items="totalRowsAlerts"
         :loading="loadingAlerts"
+        :rows-per-page-items= [5,10,20,100]
         class="elevation-1"
       >
         <template v-slot:items="props">
