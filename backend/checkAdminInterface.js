@@ -1,5 +1,4 @@
 /*jshint esversion: 8 */
-//@ts-check
 
 //deaktiviert TLS Zertifkatsprüfung. 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -113,6 +112,7 @@ async function getServercheckPage(aURL) {
         method: 'GET',
         url: sURL_CHECK,
         encoding: null,
+        timeout: 300000,
         headers: {
             'cache-control': 'no-cache'
         },
@@ -130,7 +130,7 @@ async function getServercheckPage(aURL) {
             return rp(config_post)
                 .then(function (body) {
                     //Prüfen ob Benutzernamen und Passwort stimmen. Wenn nicht wird dies in der HTML Seite zurück gegeben. 
-                    if (body.html().indexOf('Passwort war falsch')>0) throw 'Password is wrong';
+                    if (body.html().indexOf('Passwort war falsch')>0) throw 'Password is wrong on ' + sURL;
                     return rp(config_check)
                         .then(function (body) {
                             //debug(body.html());
