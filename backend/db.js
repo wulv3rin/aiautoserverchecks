@@ -3,6 +3,7 @@
 const debug = require('debug')('app:DB');
 const mongoose = require('mongoose');
 mongoose.set('useCreateIndex', true);
+mongoose.set('useFindAndModify', false);
 mongoose.connect(`mongodb://${process.env.MongoDbHost}/${process.env.MongoDbSid}`, {useNewUrlParser: true, useUnifiedTopology: true})
     .then(() => debug(`Connected to MongoDB "${process.env.MongoDbHost}/${process.env.MongoDbSid}"`))
     .catch(err => debug(`Could not connect to MongoDB "${process.env.MongoDbHost}/${process.env.MongoDbSid}"`, err));
