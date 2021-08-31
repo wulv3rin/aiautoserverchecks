@@ -125,7 +125,7 @@ async function getServercheckPage(aURL) {
         }
     };
     return rp(config_get)
-        .then(function (body) {
+        .then(function () {
             //debug($.html());    
             return rp(config_post)
                 .then(function (body) {
