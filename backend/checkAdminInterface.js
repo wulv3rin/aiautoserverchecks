@@ -154,49 +154,30 @@ async function getServercheckPage(aURL) {
                             let childID=0;
                             childID= sURL.indexOf("NetServer") > -1 ? childID=1 : childID=0;
 
-                            //nur in der Tabelle mit class=tabelleLine2 stehen die haengenden Peertask
-                            body('form > table > tbody > tr > td[class=tabelleLine2]').each(function (i, element) {
-                                //debug(`i: ${i}, element: ${element}, class: ${element.attribs.class}`);
-                                if (spalte==0){
-                                    newPeerTask.push(sKunde); //0 = customer
-                                    newPeerTask.push(sURL);   //1 = serverURL
-                                    if (element.children[childID].attribs){
-                                        newPeerTask.push(element.children[childID].attribs.color); //2 = color
-                                    }
-                                    spalte = 3;
-                                }
-                                //console.log (element);
-                                if (element.children[childID].name == 'font') {
-                                    //debug($(this).text());
-                                    newPeerTask.push($(this).text().trim());    //3, 4, 5, 6, 7, 8, 
-                                    spalte++;
-                                }else if (element.children[childID].name == 'input') {
-                                    //debug($(this).html());
-                                    //debug(element);
-                                    //debug(element.children[childID].attribs.value);
-                                    newPeerTask.push(element.children[childID].attribs.value); // 9 = peerOid
-                                    
-                                    //Ab hier wurden alle Einträge von der Checkpage ausgelesen. Aktuelliesiere oder erzeuge neuen Peertask in der DB
-                                    
-                                    // Prüfe ob PeerOid ermittelt wurde
-                                    if (newPeerTask[9]) {
-                                        const peerTaskDate = moment(newPeerTask[6],'DD.MM.YYYY HH:mm:ss').format('YYYY-MM-DD HH:mm:ss');
-                                        //Prüfe ob gespoolte Peertask älter als 15 Minuten sind
-                                        if (moment().diff(peerTaskDate,'minutes') >= 15) {
-                                            debug(newPeerTask);
-                                            db.updateDbPeerTask(newPeerTask[0],newPeerTask[1],newPeerTask[2],newPeerTask[3],newPeerTask[4],newPeerTask[5],peerTaskDate,newPeerTask[7],newPeerTask[8],newPeerTask[9],true); //10 = still_current
-                                        }
-                                    }
-                                    spalte = 0;
-                                    newPeerTask = [];
-                                } else if (element.children[childID].name == 'a'){
-                                    debugVerbose(`Ende der Peertask von ${sURL} erreicht.`);
-                                } else {
-                                    debug(`Peertask von ${sURL} Spalte ${spalte} konnte nicht richtig ausgelesen werden:`);
-                                    debug(`Children[0].name=${element.children[0].name}`);
-                                    debug(`Children[1].name=${element.children[1].name}`);
-                                }
-                            });
+                            //Im VM und der alten VP Version stehen die haengenden Peertast in td mit class=tabelleLine2 
+                            //In der neue VP Version stehen diese im tr mit class="tableHighlight alert". 
+                            let oldVPVersion = true;
+                            body('body > div.content > div > div:nth-child(1) > div:nth-child(2) > span:nth-child(2)').each(function (i, element){
+                                debug(`Serverversion: ${element.children[0].data}`);
+                                oldVPVersion = false;
+                            })
+
+                            if (oldVPVersion) {
+                                body('form > table > tbody > tr > td[class=tabelleLine2]').each(function (i, element) {
+                                    const result = oldParser (i, element, childID, spalte,newPeerTask,sKunde,sURL);
+                                    //debug(result);
+                                    newPeerTask = result.newPeerTask
+                                    spalte = result.spalte
+                                 });
+                            } else {
+                                body('form > table > tbody > tr[class="tableHighlight alert"] > td').each(function (i, element) {
+                                    const result = newVPParser(i, element, childID, spalte, newPeerTask,sKunde, sURL);
+                                    newPeerTask = result.newPeerTask
+                                    spalte = result.spalte
+                                });
+                            }
+                            
+                            
                         })
                         .catch(async function (err) {
                             debug("Error on reading checkpage: " + err + " StatusCode: " + err.statusCode);
@@ -216,3 +197,95 @@ async function getServercheckPage(aURL) {
             debugVerbose(dbresult);
         });
 }
+
+function oldParser(i,element,childID,spalte,newPeerTask,sKunde,sURL) {
+    //debug(`i: ${i}, class: ${element.attribs.class}, element:`);
+    //debug(element.children[0].data);
+    if (spalte==0){
+        newPeerTask.push(sKunde); //0 = customer
+        newPeerTask.push(sURL);   //1 = serverURL
+        if (element.children[childID].attribs){
+            newPeerTask.push(element.children[childID].attribs.color); //2 = color
+        }
+        spalte = 3;
+    }
+    //console.log (element);
+    if (element.children[childID].name == 'font') {
+        //debug($(this).text());
+        try {
+            newPeerTask.push(element.children[childID].children[0].data);
+        } catch (error) {
+            debug(`Konnte Spalte ${spalte} nicht auslesen. Verwende kein Zeichen`);
+            newPeerTask.push("");
+        }
+        
+        spalte++;
+    }else if (element.children[childID].name == 'input') {
+        //debug($(this).html());
+        //debug(element);
+        //debug(element.children[childID].attribs.value);
+        newPeerTask.push(element.children[childID].attribs.value); // 9 = peerOid
+        
+        //Ab hier wurden alle Einträge von der Checkpage ausgelesen. Aktuelliesiere oder erzeuge neuen Peertask in der DB
+        
+        // Prüfe ob PeerOid ermittelt wurde
+        if (newPeerTask[9]) {
+            const peerTaskDate = moment(newPeerTask[6],'DD.MM.YYYY HH:mm:ss').format('YYYY-MM-DD HH:mm:ss');
+            //Prüfe ob gespoolte Peertask älter als 15 Minuten sind
+            if (moment().diff(peerTaskDate,'minutes') >= 15) {
+                debug(newPeerTask);
+                db.updateDbPeerTask(newPeerTask[0],newPeerTask[1],newPeerTask[2],newPeerTask[3],newPeerTask[4],newPeerTask[5],peerTaskDate,newPeerTask[7],newPeerTask[8],newPeerTask[9],true); //10 = still_current
+            }
+        }
+        spalte = 0;
+        newPeerTask = [];
+    } else if (element.children[childID].name == 'a'){
+        debugVerbose(`Ende der Peertask von ${sURL} erreicht.`);
+    } else {
+        debug(`Peertask von ${sURL} Spalte ${spalte} konnte nicht richtig ausgelesen werden:`);
+        debug(`Children[0].name=${element.children[0].name}`);
+        debug(`Children[1].name=${element.children[1].name}`);
+    }
+    return {'spalte' : spalte, 'newPeerTask' : newPeerTask};
+}
+
+function newVPParser(i,element,childID,spalte,newPeerTask,sKunde,sURL) {
+    debug(`i: ${i}, class: ${element.attribs.class}, element:`);
+    
+    // Ersten drei DB Felder befüllen:
+    if (spalte==0){
+        newPeerTask.push(sKunde); //0 = customer
+        newPeerTask.push(sURL);   //1 = serverURL
+        newPeerTask.push('Red'); //2 = color
+        spalte = 3;
+    }
+
+    try {
+        newPeerTask.push(element.children[0].data);
+    } catch (error) {
+        newPeerTask.push("");
+    }
+    spalte++;
+
+    if (spalte == 11) {
+        try {
+            newPeerTask.push(element.children[1].attribs.value);
+        } catch (error) {
+            newPeerTask.push("");
+        }
+    }
+
+    // Prüfe ob PeerOid ermittelt wurde
+    if (newPeerTask[11]) {
+        const peerTaskDate = moment(newPeerTask[6],'DD.MM.YYYY HH:mm:ss').format('YYYY-MM-DD HH:mm:ss');
+        //Prüfe ob gespoolte Peertask älter als 15 Minuten sind
+        if (moment().diff(peerTaskDate,'minutes') >= 15) {
+            debug(newPeerTask);
+            db.updateDbPeerTask(newPeerTask[0],newPeerTask[1],newPeerTask[2],newPeerTask[3],newPeerTask[4],newPeerTask[5],peerTaskDate,newPeerTask[7],newPeerTask[8],newPeerTask[11],true); //10 = still_current
+        }
+        spalte = 0;
+        newPeerTask = [];
+    }
+    return {'spalte' : spalte, 'newPeerTask' : newPeerTask};
+
+}   
