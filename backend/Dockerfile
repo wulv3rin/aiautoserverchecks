@@ -1,4 +1,4 @@
-FROM node:12.9-alpine
+FROM node:12-alpine
 ENV NODE_ENV development
 WORKDIR /usr/src/app
 COPY ["package.json", "package-lock.json", "./"]
