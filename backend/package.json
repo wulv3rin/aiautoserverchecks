@@ -14,7 +14,7 @@
     "cheerio": "^1.0.0-rc.3",
     "config": "^3.0.1",
     "debug": "^4.1.1",
-    "express": "^4.16.4",
+    "express": "^4.17.3",
     "fs": "0.0.1-security",
     "helmet": "^3.16.0",
     "iconv-lite": "^0.4.24",
