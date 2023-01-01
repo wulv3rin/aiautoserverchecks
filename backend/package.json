@@ -12,7 +12,7 @@
   "dependencies": {
     "async": "^2.6.2",
     "cheerio": "^1.0.0-rc.3",
-    "config": "^3.0.1",
+    "config": "^3.3.8",
     "debug": "^4.1.1",
     "express": "^4.16.4",
     "fs": "0.0.1-security",
