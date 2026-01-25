@@ -41,6 +41,20 @@
             </v-card-actions>
           </v-card>
         </v-dialog>
+
+        <!-- Delete Confirmation Dialog -->
+        <v-dialog v-model="deleteDialog" max-width="500px">
+          <v-card>
+            <v-card-title class="headline">Server löschen?</v-card-title>
+            <v-card-text>Sind Sie sicher, dass Sie diesen Server aus der Überwachung entfernen möchten?</v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="blue darken-1" text @click="closeDelete">Abbrechen</v-btn>
+              <v-btn color="red darken-1" text @click="deleteItemConfirm">Löschen</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
       </v-toolbar>
       <v-data-table
         :headers="headers"
@@ -83,6 +97,8 @@ export default {
     data(){
         return {
     dialog: false,
+    deleteDialog: false,
+    itemToDelete: null,
     totalRows: 0,
     loading: true,
     options: {
@@ -124,12 +140,17 @@ export default {
     dialog (val) {
       val || this.close()
     },
+    deleteDialog (val) {
+      val || this.closeDelete()
+    },
     options: {
         handler () {
           this.getDataFromApi()
             .then(data => {
-              this.rows = data.items
-              this.totalRows = data.total
+              if (data) {
+                this.rows = data.items
+                this.totalRows = data.total
+              }
             })
         },
         deep: true
@@ -139,8 +160,10 @@ export default {
     this.loading = true;
     this.getDataFromApi()
       .then(data => {
-        this.rows = data.items
-        this.totalRows = data.total
+        if (data) {
+          this.rows = data.items
+          this.totalRows = data.total
+        }
       });
   },
 
@@ -216,15 +239,30 @@ export default {
       this.dialog = true
     },
 
-    async deleteItem (item) {
-      if (confirm('Server aus der Überwachung wirklich entfernen?')) {
-        let data = {"url": item.url};
+    deleteItem (item) {
+      this.itemToDelete = item;
+      this.deleteDialog = true;
+    },
+
+    async deleteItemConfirm () {
+      if (this.itemToDelete) {
+        let data = {"url": this.itemToDelete.url};
         await deleteServer(data);
         this.getDataFromApi().then(data => {
-          this.rows = data.items;
-          this.totalRows = data.total;
+            if (data) {
+                this.rows = data.items;
+                this.totalRows = data.total;
+            }
         });
       }
+      this.closeDelete();
+    },
+
+    closeDelete () {
+      this.deleteDialog = false;
+      this.$nextTick(() => {
+        this.itemToDelete = null;
+      });
     },
 
     close () {
@@ -244,8 +282,10 @@ export default {
       }
       await setNewServer(data);
       this.getDataFromApi().then(data => {
-        this.rows = data.items;
-        this.totalRows = data.total;
+          if (data) {
+            this.rows = data.items;
+            this.totalRows = data.total;
+          }
       });
       this.close()
     }

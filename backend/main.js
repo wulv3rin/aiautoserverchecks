@@ -148,12 +148,16 @@ app.put('/api/ServerUrl', async (req, res) => {
 
 app.delete('/api/ServerUrl', async (req, res) => {
     try {
-        result = await db.deleteDbServerUrl(req.body.url);
-        debug(`result: ${result}`);
-        result ? res.send(result) : res.status(404).send(`Sorry. No Error white URL "${req.body.url}" can be found`);
+        const result = await db.deleteDbServerUrl(req.body.url);
+        debug(`Deleted server result: ${result}`);
+        if (result) {
+            res.send(result);
+        } else {
+            res.status(404).send(`Sorry. No Server with URL "${req.body.url}" can be found`);
+        }
     } catch (error) {
-        debug(`Sorry. No dbentry white url "${req.body.url}" can be found`);
-        res.status(404).send(`Sorry. No dbentry white URL "${req.body.url}" can be found`);
+        debug(`Error deleting server: ${error}`);
+        res.status(500).send(`Internal Server Error: ${error}`);
     }
 });
 
@@ -211,12 +215,19 @@ app.get('/api/scheduleMailActivate', async function (req, res) {
 //Einstellungen Auslesen
 app.get('/api/settings', async (req, res) => {
     try {
-        const result = await db.settingsGet();
-        if (result.settingsType == undefined) throw error;
+        let result = await db.settingsGet();
+
+        // If no settings exist, create default settings
+        if (!result) {
+            result = await db.settingsUpdate({}, 'default');
+        }
+
+        if (!result || result.settingsType == undefined) throw new Error("Invalid settings object");
+
         debug(`result: ${typeof (result)}`);
         res.send(result);
     } catch (error) {
-        debug(`No Settings found!`);
+        debug(`Error getting settings: ${error}`);
         res.status(404).send(`No Settings found!`);
     }
 });
