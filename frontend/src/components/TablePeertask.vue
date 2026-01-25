@@ -5,8 +5,10 @@
       <v-spacer></v-spacer>
       <div class="text-left pt-2">
         <v-btn :loading="loading" :disabled="loading" color="primary" @click="checkForNewPeerTask">Check  <v-icon dark right>search</v-icon> </v-btn>
-        <v-btn :loading="loading" :disabled="loading" color="primary" @click="getDataFromApi">Refresh     <v-icon dark right>sync</v-icon></v-btn>
+        <v-btn :loading="loading" :disabled="loading" color="primary" @click="refreshData">Refresh     <v-icon dark right>sync</v-icon></v-btn>
       </div>
+      
+      <!-- Edit/Add Dialog -->
       <v-dialog v-model="dialog" max-width="700px">
         <v-card>
           <v-card-title>
@@ -42,7 +44,21 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+
+      <!-- Delete Confirmation Dialog -->
+      <v-dialog v-model="deleteDialog" max-width="500px">
+        <v-card>
+          <v-card-title class="headline">Eintrag löschen?</v-card-title>
+          <v-card-text>Sind Sie sicher, dass Sie diesen Peertask-Eintrag löschen möchten?</v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="blue darken-1" text @click="closeDelete">Abbrechen</v-btn>
+            <v-btn color="red darken-1" text @click="deleteItemConfirm">Löschen</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </v-toolbar>
+
     <v-data-table
       :headers="headers"
       :items="rows"
@@ -58,13 +74,13 @@
         <a :href="item.serverURL" target="_blank">{{ item.serverURL }}</a>
       </template>
       <template v-slot:item.ticketNr="{ item }">
-        <td :class="{ 'red': !(item.ticketNr > 0) }">
+        <div :class="{ 'red-cell': !(item.ticketNr > 0) }" class="ticket-cell">
           <a :href="'https://server1.ai-ag.de/Intranet/ticketsystem/EditTicket.jsp?TicketID=' + item.ticketNr" target="_blank"> {{ item.ticketNr }}</a>
-        </td>
+        </div>
       </template>
       <template v-slot:item.actions="{ item }">
         <v-icon small class="mr-2" @click="editItem(item)">edit</v-icon>
-        <v-icon small              @click="deleteItem(item)">delete</v-icon>
+        <v-icon small @click="deleteItem(item)">delete</v-icon>
       </template>
       <template v-slot:no-data>
         <v-btn color="primary" @click="initialize">Reset</v-btn>
@@ -80,6 +96,8 @@
         noTicket: true,
 
         dialog: false,
+        deleteDialog: false,
+        itemToDelete: null,
         totalRows: 0,
         loading: true,
         options: {
@@ -129,8 +147,10 @@
         handler () {
           this.getDataFromApi()
             .then(data => {
-              this.rows = data.items
-              this.totalRows = data.total
+              if (data) {
+                this.rows = data.items
+                this.totalRows = data.total
+              }
             })
         },
         deep: true
@@ -142,14 +162,19 @@
             this.$refs.TicketFocus.focus();
           }
         });
+      },
+      deleteDialog (val) {
+        val || this.closeDelete()
       }
     },
     mounted () {
       this.getDataFromApi()
         .then(data => {
-          this.rows = data.items
-          this.totalRows = data.total
-        })
+          if (data) {
+            this.rows = data.items
+            this.totalRows = data.total
+          }
+        });
     },
 
     methods: {
@@ -159,8 +184,8 @@
           const { sortBy, sortDesc, page, itemsPerPage } = this.options
 
           getDbPeerTask().then((result) => {
-            this.loading = false;
             if (!result) {
+              this.loading = false
               resolve({ items: [], total: 0 });
               return;
             }
@@ -187,6 +212,7 @@
             if (itemsPerPage > 0) {
               items = items.slice((page - 1) * itemsPerPage, page * itemsPerPage)
             }
+            this.loading = false
             resolve({
               items,
               total
@@ -194,14 +220,20 @@
           });
         })
       },
-      checkForNewPeerTask: async function () {
+      refreshData() {
+        this.getDataFromApi().then(data => {
+          if (data) {
+            this.rows = data.items;
+            this.totalRows = data.total;
+          }
+        });
+        this.$root.$emit('refresh-alerts');
+      },
+      async checkForNewPeerTask() {
         this.loading = true
-        deleteAllAlerts().then(() => {
-        });
         //Prüfe ob es neue hängende Peertask gibt
-        searchForNewPeerTask().then(() => {
-          this.getDataFromApi();
-        });
+        await searchForNewPeerTask();
+        this.refreshData();
       },
       initialize () {
         this.rows = [
@@ -216,7 +248,8 @@
             "counter": "3",
             "receiver": "musternetlocalbwbexterne",
             "still_current": true,
-            "ticketNr": 12234
+            "ticketNr": 12234,
+            "peerOid": "DUMMY_OID_1"
           }
         ]
       },
@@ -228,10 +261,25 @@
       },
 
       deleteItem (item) {
-        const index = this.rows.indexOf(item)
-        confirm('Are you sure you want to delete this item?') && this.rows.splice(index, 1)
-        let data ={"peertaskoid" : item.peerOid}
-        deletePeerTask(data);
+        console.log("Delete item clicked", item);
+        this.itemToDelete = item;
+        this.deleteDialog = true;
+      },
+
+      async deleteItemConfirm () {
+        if (this.itemToDelete) {
+          let data = {"peertaskoid": this.itemToDelete.peerOid};
+          await deletePeerTask(data);
+          this.refreshData();
+        }
+        this.closeDelete();
+      },
+
+      closeDelete () {
+        this.deleteDialog = false;
+        this.$nextTick(() => {
+          this.itemToDelete = null;
+        });
       },
 
       close () {
@@ -242,16 +290,17 @@
         }, 300)
       },
 
-      save () {
+      async save () {
         if (this.editedIndex > -1) {
           let data = {
             "peerOid" : this.editedItem.peerOid,
             "key": "ticketNr",
             "value": this.editedItem.ticketNr
           }
-          setTicketNr(data);
-          Object.assign(this.rows[this.editedIndex], this.editedItem)
+          await setTicketNr(data);
+          this.refreshData();
         } else {
+          // New items are not handled currently via setTicketNr API
           this.rows.push(this.editedItem)
         }
         this.close()
@@ -312,22 +361,6 @@ async function deletePeerTask(data) {
         console.error('Error deleting peer task:', e);
     }
 }
-
-async function deleteAllAlerts() {
-    try {
-        const result = await fetch('/api/aIEALL', { 
-            method: 'DELETE',
-            headers:{'Content-Type': 'application/json'}
-        });
-        if (result.ok) {
-            const text = await result.text();
-            return text ? JSON.parse(text) : [];
-        }
-    } catch (e) {
-        console.error('Error deleting alerts:', e);
-    }
-    return [];
-}
 </script>
 
 <style scoped>
@@ -343,8 +376,16 @@ table.v-table tbody td, table.v-table tbody th {
     font-size: 16px;
 }
 
-.red {
-  background-color: red !important;
+.ticket-cell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.red-cell {
+  background-color: red !important;
+  color: white;
+}
 </style>

@@ -72,11 +72,16 @@ app.put('/api/resetPeerTask', async (req, res) => {
 
 app.delete('/api/peerTask', async (req, res) => {
     try {
-        result = await db.deleteDbPeerTask(req.body.peertaskoid);
-        res.send(result);
+        const result = await db.deleteDbPeerTask(req.body.peertaskoid);
+        if (result && result.deletedCount === 1) {
+            debug(`Deleted peerTask with ID ${req.body.peertaskoid}`);
+            res.send(result);
+        } else {
+            res.status(404).send(`Sorry. No peerTask was found with ID ${req.body.peertaskoid}`);
+        }
     } catch (error) {
-        debug(`Sorry. No peerTask was found white ID ${req.body.peertaskoid}`);
-        res.sendStatus(404).send(`Sorry. No peerTask was found white ID ${req.body.peertaskoid}`);
+        debug(`Error deleting peerTask: ${error.message}`);
+        res.status(500).send(`Internal Server Error`);
     }
 });
 

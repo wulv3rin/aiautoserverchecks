@@ -65,7 +65,14 @@
         .then(data => {
           this.rowsAlerts = data.items
           this.totalRowsAlerts = data.total
-        })
+        });
+      this.$root.$on('refresh-alerts', () => {
+        this.getDataFromApiAlerts()
+          .then(data => {
+            this.rowsAlerts = data.items
+            this.totalRowsAlerts = data.total
+          });
+      });
     },
     methods: {
        getDataFromApiAlerts () {
