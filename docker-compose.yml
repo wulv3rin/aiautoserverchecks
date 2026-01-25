@@ -1,15 +1,15 @@
-version: '3.3'
+version: '3.8'
 
 services:
   mongodb:
-    image: mongo:3.4-xenial
+    image: mongo:7.0
     restart: always
     volumes:
       - v-mongodb:/data/db
     #environment:
     #  MONGO_INITDB_ROOT_USERNAME: xxxxx
     #  MONGO_INITDB_ROOT_PASSWORD: xxxxx
-  
+
   backend:
     image: asc-backend-image
     restart: always
@@ -18,15 +18,15 @@ services:
       - ./backend/:/usr/src/app/
     ports:
       - 3000:3000
-    depends_on: 
+    depends_on:
       - mongodb
     environment:
       DEBUG: "app:*"
       #DEBUG: app:checkAIP
       MongoDbHost: mongodb
       MongoDbSid: ascdb
-  
-  frontend: 
+
+  frontend:
     image: asc-frontend-image
     restart: always
     build: ./frontend/

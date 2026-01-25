@@ -1,10 +1,11 @@
 <template>
-    <div :settings="{settings:true}">
-        <v-content><TableServerList/></v-content>
-        <br>
-        <v-content><SmtpSettings/></v-content>
-        <br>
-    </div>
+    <v-main>
+        <v-container>
+            <TableServerList/>
+            <br>
+            <SmtpSettings/>
+        </v-container>
+    </v-main>
 </template>
 
 <script>

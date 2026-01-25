@@ -1,8 +1,11 @@
 <template>
-    <div :settings="{settings:true}">
-        <v-content><TableServerAlerts/></v-content>
-        <v-content><TablePeertask/></v-content>
-    </div>
+    <v-main>
+        <v-container>
+            <TableServerAlerts/>
+            <br>
+            <TablePeertask/>
+        </v-container>
+    </v-main>
 </template>
 
 <script>

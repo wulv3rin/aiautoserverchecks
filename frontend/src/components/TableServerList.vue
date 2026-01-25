@@ -1,5 +1,5 @@
 <template>
-    <div :settings="{settings:true}">
+    <div>
         <br>
         <br>
         <br>
@@ -7,8 +7,8 @@
         <v-toolbar-title>Serverliste</v-toolbar-title>
         <v-spacer></v-spacer>
         <v-dialog v-model="dialog" max-width="500px">
-          <template v-slot:activator="{ on }">
-            <v-btn color="primary" dark class="mb-2" v-on="on">Add Server</v-btn>
+          <template v-slot:activator="{ on, attrs }">
+            <v-btn color="primary" dark class="mb-2" v-on="on" v-bind="attrs">Add Server</v-btn>
           </template>
           <v-card>
             <v-card-title>
@@ -36,8 +36,8 @@
   
             <v-card-actions>
               <v-spacer></v-spacer>
-              <v-btn color="blue darken-1" flat @click="close">Cancel</v-btn>
-              <v-btn color="blue darken-1" flat @click="save">Save</v-btn>
+              <v-btn color="blue darken-1" text @click="close">Cancel</v-btn>
+              <v-btn color="blue darken-1" text @click="save">Save</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -45,32 +45,31 @@
       <v-data-table
         :headers="headers"
         :items="rows"
-        :pagination.sync="pagination"
-        :total-items="totalRows"
+        :options.sync="options"
+        :server-items-length="totalRows"
         :loading="loading"
-        :rows-per-page-items= [50,100,200,1000]
+        :footer-props="{
+          'items-per-page-options': [50, 100, 200, 1000]
+        }"
         class="elevation-1"
       >
-        <template v-slot:items="props">
-          <td>{{ props.item.url }}</td>
-          <td>{{ props.item.user }}</td>
-          <td :style="{'-webkit-text-security': 'disc'}">{{ props.item.password }}</td>
-          <td>{{ props.item.customer }}</td>
-          <td class="justify-center layout px-0">
-            <v-icon
-              small
-              class="mr-2"
-              @click="editItem(props.item)"
-            >
-              edit
-            </v-icon>
-            <v-icon
-              small
-              @click="deleteItem(props.item)"
-            >
-              delete
-            </v-icon>
-          </td>
+        <template v-slot:item.password="{ item }">
+          <td :style="{'-webkit-text-security': 'disc'}">{{ item.password }}</td>
+        </template>
+        <template v-slot:item.actions="{ item }">
+          <v-icon
+            small
+            class="mr-2"
+            @click="editItem(item)"
+          >
+            edit
+          </v-icon>
+          <v-icon
+            small
+            @click="deleteItem(item)"
+          >
+            delete
+          </v-icon>
         </template>
         <template v-slot:no-data>
           <v-btn color="primary" @click="initialize">Reset</v-btn>
@@ -86,16 +85,17 @@ export default {
     dialog: false,
     totalRows: 0,
     loading: true,
-    pagination: {
-        descending: true,
-        sortBy: 'url'
+    options: {
+        sortBy: ['url'],
+        sortDesc: [true],
+        itemsPerPage: 50
     },
     headers: [
       { text: 'URL',        value: 'url'},
       { text: 'Benutzer',   value: 'user' },
       { text: 'Passwort',   value: 'password' },
       { text: 'Kunde',      value: 'customer' },
-      { text: 'Actions',    value: 'url', sortable: false }
+      { text: 'Actions',    value: 'actions', sortable: false }
     ],
     rows: [],
     editedIndex: -1,
@@ -124,7 +124,7 @@ export default {
     dialog (val) {
       val || this.close()
     },
-    pagination: {
+    options: {
         handler () {
           this.getDataFromApi()
             .then(data => {
@@ -141,7 +141,6 @@ export default {
       .then(data => {
         this.rows = data.items
         this.totalRows = data.total
-        //this.loading = false;
       });
   },
 
@@ -149,21 +148,25 @@ export default {
     getDataFromApi () {
         this.loading = true
         return new Promise((resolve) => {
-          const { sortBy, descending, page, rowsPerPage } = this.pagination
+          const { sortBy, sortDesc, page, itemsPerPage } = this.options
 
-          let items = {}
+          let items = []
           
           getDbServers().then((result) => {
               this.loading = false;
+              if (!result) {
+                  resolve({ items: [], total: 0 });
+                  return;
+              }
               items = result;
               const total = items.length
 
-              if (this.pagination.sortBy) {
-               items = items.sort((a, b) => {
-                  const sortA = a[sortBy]
-                  const sortB = b[sortBy]
+              if (sortBy && sortBy.length > 0) {
+                items = items.sort((a, b) => {
+                  const sortA = a[sortBy[0]]
+                  const sortB = b[sortBy[0]]
 
-                  if (descending) {
+                  if (sortDesc[0]) {
                     if (sortA < sortB) return 1
                     if (sortA > sortB) return -1
                     return 0
@@ -175,11 +178,9 @@ export default {
                 })
               }
 
-            if (rowsPerPage > 0) {
-              items = items.slice((page - 1) * rowsPerPage, page * rowsPerPage)
+            if (itemsPerPage > 0) {
+              items = items.slice((page - 1) * itemsPerPage, page * itemsPerPage)
             }
-            //this.loading = false
-            this.pagination.totalItems = total;
             resolve({
               items,
               total
@@ -215,12 +216,15 @@ export default {
       this.dialog = true
     },
 
-    deleteItem (item) {
-      const index = this.rows.indexOf(item)
-      confirm('Server aus der Überwachung wirklich entfernen?') && this.rows.splice(index, 1)
-      this.pagination.totalItems = this.rows.length;
-      let data ={"url" : item.url}
-      deleteServer(data);
+    async deleteItem (item) {
+      if (confirm('Server aus der Überwachung wirklich entfernen?')) {
+        let data = {"url": item.url};
+        await deleteServer(data);
+        this.getDataFromApi().then(data => {
+          this.rows = data.items;
+          this.totalRows = data.total;
+        });
+      }
     },
 
     close () {
@@ -231,55 +235,66 @@ export default {
       }, 300)
     },
 
-    save () {
+    async save () {
       let data = {
         "url" : this.editedItem.url,
         "user": this.editedItem.user,
         "password": this.editedItem.password,
         "customer": this.editedItem.customer
       }
-      if (this.editedIndex > -1) {
-        setNewServer(data);
-        Object.assign(this.rows[this.editedIndex], this.editedItem)
-      } else {
-        setNewServer(data);
-        this.rows.push(this.editedItem)
-      }
+      await setNewServer(data);
+      this.getDataFromApi().then(data => {
+        this.rows = data.items;
+        this.totalRows = data.total;
+      });
       this.close()
     }
   }
 }
 
 async function getDbServers() {
-    const result = await fetch('/api/getServerUrls');
-    if (result.status === 200) {
-      return await result.json();
+    try {
+        const result = await fetch('/api/getServerUrls');
+        if (result.ok) {
+            return await result.json();
+        }
+        console.error('Failed to fetch servers:', result.statusText);
+    } catch (e) {
+        console.error('Error fetching servers:', e);
     }
 }
 
 async function setNewServer(data) {
-    const result = await fetch('/api/ServerUrl',
-    { method: 'PUT',
-      body: JSON.stringify(data),
-      headers:{'Content-Type': 'application/json'}
-    });
-    if (result.status === 200) {
-      return await result.json();
-    } else {
-      //console.log('Konnte keine DB Daten ziehen');
+    try {
+        const result = await fetch('/api/ServerUrl', { 
+            method: 'PUT',
+            body: JSON.stringify(data),
+            headers:{'Content-Type': 'application/json'}
+        });
+        if (result.ok) {
+            const text = await result.text();
+            return text ? JSON.parse(text) : {};
+        }
+        console.error('Failed to set server:', result.statusText);
+    } catch (e) {
+        console.error('Error setting server:', e);
     }
 }
 
 async function deleteServer(data) {
-    const result = await fetch('/api/ServerUrl',
-    { method: 'DELETE',
-      body: JSON.stringify(data),
-      headers:{'Content-Type': 'application/json'}
-    });
-    if (result.status === 200) {
-      return await result.json();
-    } else {
-      //console.log('Konnte keine DB Daten ziehen');
+    try {
+        const result = await fetch('/api/ServerUrl', { 
+            method: 'DELETE',
+            body: JSON.stringify(data),
+            headers:{'Content-Type': 'application/json'}
+        });
+        if (result.ok) {
+            const text = await result.text();
+            return text ? JSON.parse(text) : {};
+        }
+        console.error('Failed to delete server:', result.statusText);
+    } catch (e) {
+        console.error('Error deleting server:', e);
     }
 }
 </script>
