@@ -1,13 +1,13 @@
 <template>
   <v-app>
-    <v-toolbar app>
+    <v-app-bar app>
       <v-toolbar-title class="headline text-uppercase">
         <span>AI</span>
         <span class="font-weight-light">AutoServerCheck</span>
       </v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn small v-on:click="switchButton">{{btText}}</v-btn>
-    </v-toolbar>
+    </v-app-bar>
     <router-view></router-view>
   </v-app>
 </template>
